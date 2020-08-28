@@ -1,154 +1,150 @@
 provider "aws" {
- region    =  "ap-south-1"
- profile   =   "rajat"
+  profile = "rajat"
+  region = "ap-south-1"
 }
 
+#create key
+resource "aws_key_pair" "mykey" {
+  key_name   = "mykey"
+  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDHr1mQ8A39GTx7QmCfsKf7r4gmaf+4d4lv2HNGTqTLOAw0sES4qyprF91op7aAkXmHPZ+ww5Aa7tYBASMQYixXTuYrFKjW872usfpx26s6xjZZG2E/FnFpGqxgiCiNyCd682mwAPI9kJubcX+YtjHnFjFQ8ktjMH38pwzGAq2b4mFJJlfQKdfCiAk7d+K/eSnlBvdnJgnK/FUyCFkq9768s8q1juuCG4w+vX1Tcqieeo3k3I+UkZmAYx5dx9nibeQxOnFni/Imiscws+8C7YNkeJXquwAGmQ3bCQNtHa1DO7CTUlovR+jG7prgF5tIsgr8hvhRCA2sD7/5PTVlGXdNxadPHslvITJXwFY0wtRg20SA3NduVP6pQ/hoBHJJ+uWjih9dDHrcDx1DBvabMYS8hAdzf64sZFgNEEwonWEVGMXKNuBFpn7xAoWXxTSUqa1AJ85RWHAPdsOh537Azni5cLoUhHGuMHlOvAcG9b9kRNaIStFVBv91v/nUj5M3X6E= shelkevaishnavi0@gmail.com"
+}
 
-resource "aws_vpc" "myteravpc" {
-  cidr_block       = "10.0.0.0/16"
-  instance_tenancy = "default"
-  
+resource "aws_vpc" "mytaskvpc" {
+  cidr_block = "192.168.0.0/16"
+
 
   tags = {
-    Name = "myteravpc"
+    Name = "mytaskvpc"
   }
 }
 
-resource "aws_subnet" "Pub_subnet"{
-  vpc_id  =  "vpc-0af147b0799765383"
-  cidr_block = "10.0.1.0/24"
+resource "aws_subnet" "mypublicsubnet1" {
+  vpc_id = "${aws_vpc.mytaskvpc.id}"
+  cidr_block = "192.168.0.0/24"
   availability_zone = "ap-south-1a"
   map_public_ip_on_launch = "true"
 
 
- tags = {
-   Name = "publicsubnet-1a"
+  tags = {
+    Name = "public subnet"
   }
 }
 
-resource "aws_subnet" "pri_subnet" {
-  vpc_id  =  "vpc-0af147b0799765383"
-  cidr_block = "10.0.0.0/24"
+resource "aws_subnet" "myprivatesubnet2" {
+  vpc_id = "${aws_vpc.mytaskvpc.id}"
+  cidr_block = "192.168.32.0/24"
   availability_zone = "ap-south-1b"
 
 
   tags = {
-    Name = "privatesubnet-1b"
+    Name = "private subnet"
   }
 }
 
+resource "aws_internet_gateway" "taskig" {
+  vpc_id = "${aws_vpc.mytaskvpc.id}" 
 
 
-resource "aws_security_group" "security" {
-  name        = "mysecurity"
-  description = "Allow inbound traffic"
-  vpc_id = "vpc-0af147b0799765383"
+  tags = {
+    Name = "lwig"
+  }
+}
+
+resource "aws_route_table" "taskroute" {
+  vpc_id = "${aws_vpc.mytaskvpc.id}" 
+
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = "${aws_internet_gateway.taskig.id}"
+  }
+
+
+  tags = {
+    Name = "lwrt3"
+  }   
+}
+
+resource "aws_route_table_association" "mya" {
+  subnet_id = aws_subnet.mypublicsubnet1.id
+  route_table_id = aws_route_table.taskroute.id
+}
+
+
+resource "aws_route_table_association" "myb" {
+  subnet_id = aws_subnet.myprivatesubnet2.id
+  route_table_id = aws_route_table.taskroute.id
+}
+
+
+resource "aws_security_group" "task_sg1"{
+  name = "task_sg1"
+  vpc_id = "${aws_vpc.mytaskvpc.id}" 
+
+
+  ingress {
+    description = "SSH"
+    from_port = 22
+    to_port = 22
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
 
   ingress {
     description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  } 
+
+
   ingress {
     description = "TCP"
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
+    from_port = 3306
+    to_port = 3306
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  } 
+  
+  egress { 
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  
+  tags = {
+    Name = "lwsg3"
+ }
 }
 
-resource "aws_security_group" "allow_mysql" {
-  name        = "allow_mysql"
-  description = "Allow Mysql"
-  vpc_id      = "vpc-0af147b0799765383"
 
-   ingress {
-    description = "TCP"
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+resource "aws_instance" "public_subnet"{
+  ami = "ami-96d6a0f9"
+  instance_type = "t2.micro"
+  key_name = "mykey"
+  vpc_security_group_ids = [aws_security_group.task_sg1.id]
+  subnet_id = "${aws_subnet.mypublicsubnet1.id}"
 
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
   tags = {
-    Name = "allow_only_mysql"
+    Name = "task3wordpress"
   }
 }
 
+resource "aws_instance" "private_subnet"{
+  ami = "ami-08706cb5f68222d09"
+  instance_type = "t2.micro"
+  key_name = "mykey"
+  vpc_security_group_ids = [aws_security_group.task_sg1.id]
+  subnet_id = "${aws_subnet.myprivatesubnet2.id}"
 
-
-resource "aws_internet_gateway" "myteravpcIGW" {
-  vpc_id = "vpc-0af147b0799765383"
 
   tags = {
-    Name = "myteravpcIGW"
+    Name = "task3mysql"
   }
 }
 
 
-
-resource "aws_route_table" "mytera_vpc_route_table" {
-  vpc_id = "vpc-0af147b0799765383"
-  
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = "igw-047fe3da3c5263f69"
-  }
-  tags = {
-   Name = "myteraroutetable"
-  }
-}
-
-
-
-resource "aws_instance" "myos1" {
-	ami = "ami-052c08d70def0ac62"
-	instance_type = "t2.micro"
-        key_name = "mykey1111"
-	vpc_security_group_ids = [aws_security_group.security.id]
-    subnet_id = "${aws_subnet.Pub_subnet.id}"
-  
-tags = {
-	Name = "WPOS"
-	}
-   }
-
-
-resource "aws_instance" "myos2" {
-	ami = "ami-08706cb5f68222d09"
-	instance_type = "t2.micro"
-        key_name = "mykey1111"
-	vpc_security_group_ids = [aws_security_group.allow_mysql.id]
-    subnet_id = "${aws_subnet.pri_subnet.id}"
-  
-tags = {
-	Name = "MYSQL"
-	}
-   }
